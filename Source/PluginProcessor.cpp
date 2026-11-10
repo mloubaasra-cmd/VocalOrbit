@@ -17,6 +17,15 @@ VocalOrbitProcessor::VocalOrbitProcessor()
     pMix        = apvts.getRawParameterValue ("mix");
     pOutput     = apvts.getRawParameterValue ("output");
     pMonoCheck  = apvts.getRawParameterValue ("monoCheck");
+
+    for (int i = 0; i < numNodes; ++i)
+    {
+        auto& n = nodeStates[(size_t) i];
+        n.on   = apvts.getRawParameterValue (nodeParamId (i, "on"));
+        n.freq = apvts.getRawParameterValue (nodeParamId (i, "freq"));
+        n.pan  = apvts.getRawParameterValue (nodeParamId (i, "pan"));
+        n.bw   = apvts.getRawParameterValue (nodeParamId (i, "bw"));
+    }
 }
 
 AudioProcessorValueTreeState::ParameterLayout VocalOrbitProcessor::createParameterLayout()
@@ -60,6 +69,39 @@ AudioProcessorValueTreeState::ParameterLayout VocalOrbitProcessor::createParamet
 
     layout.add (std::make_unique<AudioParameterBool> (ParameterID { "monoCheck", 1 }, "Mono Check", false));
 
+    // Frequency nodes
+    const NormalisableRange<float> freqRange (40.0f, 16000.0f,
+        [] (float start, float end, float v) { return start * std::pow (end / start, v); },
+        [] (float start, float end, float v) { return std::log (v / start) / std::log (end / start); });
+
+    auto freqText = AudioParameterFloatAttributes().withStringFromValueFunction ([] (float v, int)
+    {
+        return v >= 1000.0f ? String (v / 1000.0f, v >= 10000.0f ? 1 : 2) + " kHz" : String (roundToInt (v)) + " Hz";
+    });
+    auto panText = AudioParameterFloatAttributes().withStringFromValueFunction ([] (float v, int)
+    {
+        auto r = roundToInt (v);
+        return r == 0 ? String ("C") : (r < 0 ? "L" + String (-r) : "R" + String (r));
+    });
+    auto bwText = AudioParameterFloatAttributes().withStringFromValueFunction ([] (float v, int)
+    {
+        return String (v, 1) + " oct";
+    });
+
+    const float defaultFreqs[numNodes] { 150, 300, 600, 1200, 2400, 4800, 8000, 12000 };
+
+    for (int i = 0; i < numNodes; ++i)
+    {
+        const String n = "Node " + String (i + 1) + " ";
+        layout.add (std::make_unique<AudioParameterBool>  (ParameterID { nodeParamId (i, "on"), 1 }, n + "On", false));
+        layout.add (std::make_unique<AudioParameterFloat> (ParameterID { nodeParamId (i, "freq"), 1 }, n + "Freq",
+                                                           freqRange, defaultFreqs[i], freqText));
+        layout.add (std::make_unique<AudioParameterFloat> (ParameterID { nodeParamId (i, "pan"), 1 }, n + "Position",
+                                                           NormalisableRange<float> (-100.0f, 100.0f, 0.1f), 0.0f, panText));
+        layout.add (std::make_unique<AudioParameterFloat> (ParameterID { nodeParamId (i, "bw"), 1 }, n + "Band Width",
+                                                           NormalisableRange<float> (0.2f, 3.0f, 0.01f), 1.0f, bwText));
+    }
+
     return layout;
 }
 
@@ -92,6 +134,18 @@ void VocalOrbitProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
         s->reset (sampleRate, rampSecs);
 
     sSpreadTime.reset (sampleRate, 0.15); // slower ramp avoids zipper/pitch artefacts
+
+    dsp::ProcessSpec stereoSpec { sampleRate, (uint32) samplesPerBlock, 2 };
+    for (auto& n : nodeStates)
+    {
+        n.filter.setType (dsp::StateVariableTPTFilterType::bandpass);
+        n.filter.prepare (stereoSpec);
+        n.filter.reset();
+        n.amount.reset (sampleRate, 0.05);
+        n.panSm.reset (sampleRate, 0.05);
+        n.amount.setCurrentAndTargetValue (n.on->load() > 0.5f ? 1.0f : 0.0f);
+        n.panSm.setCurrentAndTargetValue (n.pan->load() * 0.01f);
+    }
 
     sWidth.setCurrentAndTargetValue      (pWidth->load() * 0.01f);
     sSpread.setCurrentAndTargetValue     (pSpread->load() * 0.01f);
@@ -126,6 +180,24 @@ void VocalOrbitProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer&)
     sGain.setTargetValue       (Decibels::decibelsToGain (pOutput->load()));
     sideHighPass.setCutoffFrequency (pBassFocus->load());
 
+    // Update node filters once per block
+    std::array<float, numNodes> nodeNorm {}; // 1/Q: turns the band-pass into a unity-gain band extractor
+    bool anyNode = false;
+    for (size_t k = 0; k < nodeStates.size(); ++k)
+    {
+        auto& nd = nodeStates[k];
+        nd.amount.setTargetValue (nd.on->load() > 0.5f ? 1.0f : 0.0f);
+        nd.panSm.setTargetValue (nd.pan->load() * 0.01f);
+
+        const float octaves = jlimit (0.2f, 3.0f, nd.bw->load());
+        const float r = std::pow (2.0f, octaves);
+        const float q = std::sqrt (r) / (r - 1.0f);
+        nd.filter.setResonance (q);
+        nd.filter.setCutoffFrequency (jlimit (20.0f, (float) (currentSampleRate * 0.45), nd.freq->load()));
+        nodeNorm[k] = 1.0f / q;
+        anyNode = anyNode || nd.amount.isSmoothing() || nd.amount.getTargetValue() > 0.0f;
+    }
+
     const bool monoCheck = pMonoCheck->load() > 0.5f;
     const float msToSamples = (float) (currentSampleRate * 0.001);
 
@@ -145,6 +217,33 @@ void VocalOrbitProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer&)
 
         float outL = mid + newSide;
         float outR = mid - newSide;
+
+        // Frequency nodes: lift a band out, place it at the chosen stereo position, put it back.
+        if (anyNode)
+        {
+            for (size_t k = 0; k < nodeStates.size(); ++k)
+            {
+                auto& nd = nodeStates[k];
+                const float bandL = nd.filter.processSample (0, outL) * nodeNorm[k];
+                const float bandR = nd.filter.processSample (1, outR) * nodeNorm[k];
+                const float amt = nd.amount.getNextValue();
+                const float p   = nd.panSm.getNextValue();
+                if (amt <= 0.0f)
+                    continue;
+
+                const float bandMid  = 0.5f * (bandL + bandR);
+                const float bandSide = 0.5f * (bandL - bandR);
+                const float angle = (p + 1.0f) * MathConstants<float>::pi * 0.25f; // constant-power pan
+                const float gL = std::cos (angle) * MathConstants<float>::sqrt2;
+                const float gR = std::sin (angle) * MathConstants<float>::sqrt2;
+
+                const float placedL = bandMid * gL + bandSide;
+                const float placedR = bandMid * gR - bandSide;
+
+                outL += amt * (placedL - bandL);
+                outR += amt * (placedR - bandR);
+            }
+        }
 
         // Balance-style pan (no level boost at the extremes).
         const float pan = sPan.getNextValue();

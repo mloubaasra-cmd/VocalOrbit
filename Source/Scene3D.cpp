@@ -3,8 +3,20 @@
 using namespace juce;
 
 
-Scene3D::Scene3D (StereoSampleFifo& f) : fifo (f)
+Scene3D::Scene3D (StereoSampleFifo& f, AudioProcessorValueTreeState& state, int numNodes) : fifo (f)
 {
+    for (int i = 0; i < numNodes; ++i)
+    {
+        auto id = [i] (const char* what) { return "node" + String (i + 1) + "_" + what; };
+        nodes.push_back ({ state.getParameter (id ("on")), state.getParameter (id ("freq")),
+                           state.getParameter (id ("pan")), state.getParameter (id ("bw")) });
+        jassert (nodes.back().on && nodes.back().freq && nodes.back().pan && nodes.back().bw);
+    }
+
+    clearButton.onClick = [this] { clearNodes(); };
+    clearButton.setTooltip ("Remove all frequency nodes");
+    addAndMakeVisible (clearButton);
+
     histL.assign (fftSize, 0.0f);
     histR.assign (fftSize, 0.0f);
     pullL.assign (8192, 0.0f);
@@ -235,6 +247,7 @@ void Scene3D::resized()
     viewArea   = b.withTrimmedBottom (34.0f);
     viewCentre = viewArea.getCentre().translated (0.0f, -viewArea.getHeight() * 0.02f);
     viewScale  = jmin (viewArea.getWidth(), viewArea.getHeight() * 1.5f) * 0.36f;
+    clearButton.setBounds (getWidth() - 112, 6, 100, 22);
 }
 
 //==============================================================================
@@ -246,12 +259,16 @@ void Scene3D::paint (Graphics& g)
     drawStage (g);
     drawSpine (g);
     drawDots (g);
+    drawNodes (g);
+    drawNodeInfo (g);
     drawCorrelation (g, getLocalBounds().toFloat().removeFromBottom (34.0f).reduced (16.0f, 8.0f));
 
     g.setColour (theme.text.withAlpha (0.55f));
     g.setFont (FontOptions (11.0f));
-    g.drawText ("drag to orbit  |  wheel to zoom  |  double-click to reset",
-                getLocalBounds().reduced (12, 8), Justification::topRight);
+    g.drawText ("double-click floor: add node  |  drag node: move (Shift = left/right only)  |  wheel on node: band width  |  right-click node: remove",
+                getLocalBounds().withTrimmedBottom (34).reduced (12, 4), Justification::bottomLeft);
+    g.drawText ("drag empty space: orbit  |  wheel: zoom  |  double-click outside floor: reset view",
+                getLocalBounds().withTrimmedBottom (34).reduced (12, 4).translated (0, -14), Justification::bottomLeft);
     g.setColour (theme.text);
     g.setFont (FontOptions (12.0f, Font::bold));
     g.drawText ("STEREO SPECTRUM 3D", getLocalBounds().reduced (12, 8), Justification::topLeft);
@@ -397,24 +414,299 @@ void Scene3D::drawCorrelation (Graphics& g, Rectangle<float> area)
 }
 
 //==============================================================================
-void Scene3D::mouseDown (const MouseEvent&)
+float Scene3D::zToFreq (float z) noexcept
 {
+    return minHz * std::pow (maxHz / minHz, jlimit (0.0f, 1.0f, z));
+}
+
+void Scene3D::setParam (RangedAudioParameter* p, float value)
+{
+    p->setValueNotifyingHost (p->convertTo0to1 (value));
+}
+
+bool Scene3D::screenToFloor (Point<float> s, float& x, float& z) const
+{
+    // Inverse of project(): cast a ray from the camera and intersect it with the floor (y = 0).
+    const float k = viewScale * 2.6f;
+    const float u =  (s.x - viewCentre.x) / k;
+    const float v = -(s.y - viewCentre.y) / k;
+
+    const float cp = std::cos (pitch), sp = std::sin (pitch);
+    const float cy = std::cos (yaw),   sy = std::sin (yaw);
+
+    const float floorPy = -0.42f;                 // world y = 0 in centred coordinates
+    const float denom = v * cp - sp;
+    if (std::abs (denom) < 1.0e-5f)
+        return false;
+
+    const float t = (floorPy - camDist * sp) / denom;   // depth along the ray
+    if (t <= 0.2f)
+        return false;
+
+    const float x1 = u * t, y2 = v * t, z2 = t - camDist;
+    const float z1 = y2 * sp + z2 * cp;
+    const float px = x1 * cy - z1 * sy;
+    const float pz = x1 * sy + z1 * cy;
+
+    x = px;
+    z = (pz + 1.0f) * 0.5f;
+    return true;
+}
+
+int Scene3D::hitTestNode (Point<float> s) const
+{
+    int best = -1;
+    float bestDist = 12.0f;
+
+    for (int i = 0; i < (int) nodes.size(); ++i)
+    {
+        if (! nodeOn (i))
+            continue;
+
+        const float x = nodePan (i), z = freqToZ (nodeFreq (i));
+        const Line<float> pole (proj (x, 0.0f, z), proj (x, 1.0f, z));
+        Point<float> nearest;
+        const float d = pole.getDistanceFromPoint (s, nearest);
+        if (d < bestDist) { bestDist = d; best = i; }
+    }
+    return best;
+}
+
+void Scene3D::addNodeAt (float x, float z)
+{
+    for (int i = 0; i < (int) nodes.size(); ++i)
+    {
+        if (nodeOn (i))
+            continue;
+
+        auto& n = nodes[(size_t) i];
+        setParam (n.freq, zToFreq (z));
+        setParam (n.pan, jlimit (-1.0f, 1.0f, x) * 100.0f);
+        setParam (n.bw, 1.0f);
+        setParam (n.on, 1.0f);
+        selectedNode = i;
+        return;
+    }
+
+    statusMessage = "All " + String ((int) nodes.size()) + " nodes are in use - right-click one to remove it";
+    statusUntil = Time::getMillisecondCounterHiRes() + 2500.0;
+}
+
+void Scene3D::removeNode (int i)
+{
+    if (isPositiveAndBelow (i, (int) nodes.size()))
+    {
+        setParam (nodes[(size_t) i].on, 0.0f);
+        setParam (nodes[(size_t) i].pan, 0.0f);
+    }
+    if (selectedNode == i) selectedNode = -1;
+    if (hoveredNode == i)  hoveredNode = -1;
+}
+
+void Scene3D::clearNodes()
+{
+    for (int i = 0; i < (int) nodes.size(); ++i)
+        if (nodeOn (i))
+            removeNode (i);
+    selectedNode = -1;
+}
+
+//==============================================================================
+void Scene3D::drawNodes (Graphics& g)
+{
+    for (int i = 0; i < (int) nodes.size(); ++i)
+    {
+        if (! nodeOn (i))
+            continue;
+
+        const float x  = nodePan (i);
+        const float f  = nodeFreq (i);
+        const float bw = nodeBw (i);
+        const float z  = freqToZ (f);
+        const float zLo = freqToZ (f / std::pow (2.0f, bw * 0.5f));
+        const float zHi = freqToZ (f * std::pow (2.0f, bw * 0.5f));
+        const bool  active = (i == selectedNode || i == hoveredNode || i == draggingNode);
+        const auto  col = dotColour (theme, z);
+
+        // Band footprint on the floor: the range of frequencies this node moves
+        Path band;
+        band.startNewSubPath (proj (x - 0.07f, 0.0f, zLo));
+        band.lineTo (proj (x + 0.07f, 0.0f, zLo));
+        band.lineTo (proj (x + 0.07f, 0.0f, zHi));
+        band.lineTo (proj (x - 0.07f, 0.0f, zHi));
+        band.closeSubPath();
+        g.setColour (col.withAlpha (active ? 0.45f : 0.25f));
+        g.fillPath (band);
+        g.setColour (col.withAlpha (0.8f));
+        g.strokePath (band, PathStrokeType (1.0f));
+
+        // Guide from the centre line to the node so you can see how far it was moved
+        g.setColour (col.withAlpha (0.5f));
+        Path guide;
+        guide.startNewSubPath (proj (0.0f, 0.0f, z));
+        guide.lineTo (proj (x, 0.0f, z));
+        const float dashes[] { 4.0f, 4.0f };
+        PathStrokeType (1.0f).createDashedStroke (guide, guide, dashes, 2);
+        g.fillPath (guide);
+
+        // Pole + handles
+        const auto base = proj (x, 0.0f, z), top = proj (x, 1.0f, z);
+        g.setColour (col.withAlpha (active ? 0.9f : 0.55f));
+        g.drawLine (Line<float> (base, top), active ? 2.4f : 1.4f);
+
+        const float r = active ? 7.0f : 5.5f;
+        g.setColour (col.withAlpha (0.3f));
+        g.fillEllipse (Rectangle<float> (r * 3.2f, r * 3.2f).withCentre (base));
+        g.setColour (col);
+        g.fillEllipse (Rectangle<float> (r * 2.0f, r * 2.0f).withCentre (base));
+        g.setColour (theme.pointer);
+        g.drawEllipse (Rectangle<float> (r * 2.0f, r * 2.0f).withCentre (base), active ? 2.0f : 1.2f);
+        g.fillEllipse (Rectangle<float> (6.0f, 6.0f).withCentre (top));
+
+        // Label above the pole
+        const String label = String (i + 1) + ":  " + nodes[(size_t) i].freq->getCurrentValueAsText()
+                             + "  " + nodes[(size_t) i].pan->getCurrentValueAsText();
+        g.setFont (FontOptions (11.0f, Font::bold));
+        const auto box = Rectangle<float> (110.0f, 18.0f).withCentre (top.translated (0.0f, -14.0f));
+        g.setColour (theme.panel.withAlpha (0.85f));
+        g.fillRoundedRectangle (box, 4.0f);
+        g.setColour (active ? theme.text : theme.dimText);
+        g.drawText (label, box, Justification::centred);
+    }
+}
+
+void Scene3D::drawNodeInfo (Graphics& g)
+{
+    int used = 0;
+    for (int i = 0; i < (int) nodes.size(); ++i)
+        used += nodeOn (i) ? 1 : 0;
+
+    auto area = getLocalBounds().reduced (12, 8).withTrimmedTop (18).toFloat();
+    g.setFont (FontOptions (11.0f));
+    g.setColour (theme.dimText);
+    g.drawText ("NODES " + String (used) + "/" + String ((int) nodes.size()), area.removeFromTop (14), Justification::topLeft);
+
+    const int show = draggingNode >= 0 ? draggingNode : (hoveredNode >= 0 ? hoveredNode : selectedNode);
+    if (show >= 0 && nodeOn (show))
+    {
+        const auto& n = nodes[(size_t) show];
+        g.setColour (theme.text);
+        g.setFont (FontOptions (12.0f, Font::bold));
+        g.drawText ("Node " + String (show + 1) + ":  " + n.freq->getCurrentValueAsText()
+                      + "   position " + n.pan->getCurrentValueAsText()
+                      + "   band " + n.bw->getCurrentValueAsText(),
+                    area.removeFromTop (16), Justification::topLeft);
+    }
+
+    if (Time::getMillisecondCounterHiRes() < statusUntil)
+    {
+        g.setColour (theme.warning);
+        g.setFont (FontOptions (12.0f, Font::bold));
+        g.drawText (statusMessage, area.removeFromTop (16), Justification::topLeft);
+    }
+}
+
+//==============================================================================
+void Scene3D::mouseDown (const MouseEvent& e)
+{
+    const int hit = hitTestNode (e.position);
+
+    if (hit >= 0 && e.mods.isPopupMenu())
+    {
+        removeNode (hit);
+        return;
+    }
+
+    if (hit >= 0)
+    {
+        selectedNode = draggingNode = hit;
+        nodes[(size_t) hit].freq->beginChangeGesture();
+        nodes[(size_t) hit].pan->beginChangeGesture();
+        setMouseCursor (MouseCursor::DraggingHandCursor);
+        return;
+    }
+
+    selectedNode = -1;
     dragStartYaw = yaw;
     dragStartPitch = pitch;
 }
 
 void Scene3D::mouseDrag (const MouseEvent& e)
 {
+    if (draggingNode >= 0)
+    {
+        float x = 0.0f, z = 0.0f;
+        if (screenToFloor (e.position, x, z))
+        {
+            auto& n = nodes[(size_t) draggingNode];
+            n.pan->setValueNotifyingHost (n.pan->convertTo0to1 (jlimit (-1.0f, 1.0f, x) * 100.0f));
+            if (! e.mods.isShiftDown())
+                n.freq->setValueNotifyingHost (n.freq->convertTo0to1 (zToFreq (z)));
+        }
+        return;
+    }
+
+    if (e.mods.isPopupMenu())
+        return;
+
     yaw   = dragStartYaw + (float) e.getDistanceFromDragStartX() * 0.008f;
     pitch = jlimit (0.0f, 1.35f, dragStartPitch + (float) e.getDistanceFromDragStartY() * 0.006f);
 }
 
-void Scene3D::mouseDoubleClick (const MouseEvent&)
+void Scene3D::mouseUp (const MouseEvent&)
 {
+    if (draggingNode >= 0)
+    {
+        nodes[(size_t) draggingNode].freq->endChangeGesture();
+        nodes[(size_t) draggingNode].pan->endChangeGesture();
+        draggingNode = -1;
+        setMouseCursor (hoveredNode >= 0 ? MouseCursor::PointingHandCursor : MouseCursor::NormalCursor);
+    }
+}
+
+void Scene3D::mouseMove (const MouseEvent& e)
+{
+    const int hit = hitTestNode (e.position);
+    if (hit != hoveredNode)
+    {
+        hoveredNode = hit;
+        setMouseCursor (hit >= 0 ? MouseCursor::PointingHandCursor : MouseCursor::NormalCursor);
+    }
+}
+
+void Scene3D::mouseExit (const MouseEvent&)
+{
+    hoveredNode = -1;
+}
+
+void Scene3D::mouseDoubleClick (const MouseEvent& e)
+{
+    if (hitTestNode (e.position) >= 0)
+        return; // double-clicking a node does nothing (avoids accidental duplicates)
+
+    float x = 0.0f, z = 0.0f;
+    if (screenToFloor (e.position, x, z) && x >= -1.05f && x <= 1.05f && z >= -0.02f && z <= 1.02f)
+    {
+        addNodeAt (x, z);
+        return;
+    }
+
     yaw = -0.55f; pitch = 0.42f; camDist = 4.3f;
 }
 
-void Scene3D::mouseWheelMove (const MouseEvent&, const MouseWheelDetails& w)
+void Scene3D::mouseWheelMove (const MouseEvent& e, const MouseWheelDetails& w)
 {
+    const int hit = hitTestNode (e.position);
+    if (hit >= 0)
+    {
+        auto* bw = nodes[(size_t) hit].bw;
+        const float current = bw->convertFrom0to1 (bw->getValue());
+        bw->beginChangeGesture();
+        setParam (bw, jlimit (0.2f, 3.0f, current + (w.deltaY > 0 ? 0.1f : -0.1f)));
+        bw->endChangeGesture();
+        selectedNode = hit;
+        return;
+    }
+
     camDist = jlimit (2.2f, 7.0f, camDist - w.deltaY * 1.5f);
 }

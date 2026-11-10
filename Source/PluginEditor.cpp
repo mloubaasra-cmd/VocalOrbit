@@ -180,7 +180,7 @@ void ThemePicker::mouseMove (const MouseEvent& e)
 
 //==============================================================================
 VocalOrbitEditor::VocalOrbitEditor (VocalOrbitProcessor& p)
-    : AudioProcessorEditor (&p), processor (p), scene (p.getVisualFifo())
+    : AudioProcessorEditor (&p), processor (p), scene (p.getVisualFifo(), p.apvts, VocalOrbitProcessor::numNodes)
 {
     setLookAndFeel (&lnf);
     addAndMakeVisible (scene);

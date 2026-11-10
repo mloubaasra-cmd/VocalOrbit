@@ -43,6 +43,10 @@ public:
 
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
+    // Frequency nodes: each one grabs a band of frequencies and places it in the stereo field.
+    static constexpr int numNodes = 8;
+    static juce::String nodeParamId (int index, const char* what) { return "node" + juce::String (index + 1) + "_" + what; }
+
     juce::AudioProcessorValueTreeState apvts;
     StereoSampleFifo& getVisualFifo() noexcept { return visualFifo; }
 
@@ -65,6 +69,17 @@ private:
     juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear> spreadDelay { 4096 };
     // High-pass on the side signal keeps the low end centred ("bass focus").
     juce::dsp::StateVariableTPTFilter<float> sideHighPass;
+
+    struct NodeState
+    {
+        std::atomic<float>* on = nullptr;
+        std::atomic<float>* freq = nullptr;
+        std::atomic<float>* pan = nullptr;
+        std::atomic<float>* bw = nullptr;
+        juce::dsp::StateVariableTPTFilter<float> filter; // 2 channels (L, R)
+        juce::SmoothedValue<float> amount, panSm;
+    };
+    std::array<NodeState, numNodes> nodeStates;
 
     double currentSampleRate = 44100.0;
     std::atomic<int> currentPreset { 0 };

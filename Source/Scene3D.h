@@ -1,6 +1,7 @@
 #pragma once
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <juce_dsp/juce_dsp.h>
+#include <juce_audio_processors/juce_audio_processors.h>
 #include "StereoSampleFifo.h"
 #include "Themes.h"
 
@@ -11,10 +12,13 @@
 // Every frequency band spawns glowing dots at the position where its energy
 // sits in the stereo field. Wider (more decorrelated) content scatters further
 // sideways, so as you turn up WIDTH / SPREAD the vocal "cloud" visibly opens up.
+//
+// Frequency nodes: double-click the floor to grab the frequencies at that spot,
+// then drag the node to place those frequencies anywhere from Left to Right.
 class Scene3D : public juce::Component, private juce::Timer
 {
 public:
-    explicit Scene3D (StereoSampleFifo& fifoToUse);
+    Scene3D (StereoSampleFifo& fifoToUse, juce::AudioProcessorValueTreeState& state, int numNodes);
     ~Scene3D() override;
 
     void paint (juce::Graphics&) override;
@@ -25,6 +29,9 @@ public:
     void mouseDrag (const juce::MouseEvent&) override;
     void mouseDoubleClick (const juce::MouseEvent&) override;
     void mouseWheelMove (const juce::MouseEvent&, const juce::MouseWheelDetails&) override;
+    void mouseUp (const juce::MouseEvent&) override;
+    void mouseMove (const juce::MouseEvent&) override;
+    void mouseExit (const juce::MouseEvent&) override;
 
 private:
     static constexpr int fftOrder  = 11;
@@ -54,6 +61,31 @@ private:
     void drawDots (juce::Graphics&);
     void drawSpine (juce::Graphics&);
     void drawCorrelation (juce::Graphics&, juce::Rectangle<float>);
+    void drawNodes (juce::Graphics&);
+    void drawNodeInfo (juce::Graphics&);
+
+    // Frequency nodes
+    struct NodeParams
+    {
+        juce::RangedAudioParameter *on = nullptr, *freq = nullptr, *pan = nullptr, *bw = nullptr;
+    };
+    bool  nodeOn   (int i) const { return nodes[(size_t) i].on->getValue() > 0.5f; }
+    float nodeFreq (int i) const { return nodes[(size_t) i].freq->convertFrom0to1 (nodes[(size_t) i].freq->getValue()); }
+    float nodePan  (int i) const { return nodes[(size_t) i].pan->convertFrom0to1 (nodes[(size_t) i].pan->getValue()) * 0.01f; }
+    float nodeBw   (int i) const { return nodes[(size_t) i].bw->convertFrom0to1 (nodes[(size_t) i].bw->getValue()); }
+    static void setParam (juce::RangedAudioParameter* p, float value);
+    int  hitTestNode (juce::Point<float> screenPos) const;
+    bool screenToFloor (juce::Point<float> screenPos, float& x, float& z) const;
+    static float zToFreq (float z) noexcept;
+    void addNodeAt (float x, float z);
+    void removeNode (int i);
+    void clearNodes();
+
+    std::vector<NodeParams> nodes;
+    int selectedNode = -1, hoveredNode = -1, draggingNode = -1;
+    juce::String statusMessage;
+    double statusUntil = 0.0;
+    juce::TextButton clearButton { "CLEAR NODES" };
 
     StereoSampleFifo& fifo;
     Theme theme = getThemes()[0];

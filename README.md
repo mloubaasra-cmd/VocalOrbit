@@ -23,6 +23,28 @@ frequency sits in the stereo field.
 | **OUTPUT** | Output gain (−24 to +12 dB). |
 | **MONO CHECK** | Sums the output to mono so you can check that the vocal still holds up. |
 
+### Frequency nodes: place any frequency anywhere
+![Nodes](docs/nodes.png)
+
+Pick a range of frequencies in the 3D view and move it to wherever you want in the stereo field.
+For example, push the airy 8–12 kHz range to the left, or the body of the voice (around 300 Hz)
+slightly right.
+
+| Do this | What happens |
+|---|---|
+| **Double-click the floor** | Adds a node there, grabbing the frequencies at that spot |
+| **Drag a node** | Moves it: left/right = stereo position, front/back = which frequencies |
+| **Shift + drag** | Moves left/right only (keeps the same frequency) |
+| **Mouse wheel on a node** | Makes the grabbed frequency range wider or narrower (0.2 to 3 octaves) |
+| **Right-click a node** | Removes it |
+| **CLEAR NODES** | Removes all nodes |
+
+- You get up to **8 nodes**. Each node's on/off, frequency, position and band width are normal plugin parameters,
+  so FL Studio saves them with the project and you can **automate** them (e.g. sweep a band from left to right).
+- The shaded strip on the floor shows the range of frequencies the node grabs. The dashed line shows how
+  far it has been moved from the centre.
+- A node left in the centre doesn't change the sound at all. Only moving it changes anything.
+
 ### Themes
 Click one of the four colour dots (top right) to switch the theme: **Blue, Pink, Purple or Tan**.
 Your choice is saved with your FL Studio project.
@@ -58,7 +80,7 @@ Use the preset menu or the `<` `>` arrows at the top. The presets also show up i
 - **Cyan line** = the "centre of gravity" of each frequency band.
 - **PHASE meter** = L/R correlation. +1 = mono, 0 = very wide, and **red (below 0) = phase
   problems**, so back off Width/Spread.
-- Drag to orbit, use the mouse wheel to zoom, and double-click to reset the camera.
+- Drag empty space to orbit, use the mouse wheel to zoom, and double-click outside the floor to reset the camera.
 
 Quick vocal starting point: Width 100%, Spread 30–50%, Spread Time 12 ms, Bass Focus 150 Hz.
 
