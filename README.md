@@ -4,7 +4,11 @@ A VST3 plugin (works in FL Studio, Ableton, Reaper, Studio One, etc.) that widen
 vocals and shows them in a rotating 3D view, with glowing dots marking where each
 frequency sits in the stereo field.
 
-![VocalOrbit widened](docs/screenshot-wide.png)
+| Blue | Pink |
+|---|---|
+| ![Blue](docs/theme-blue.png) | ![Pink](docs/theme-pink.png) |
+| **Purple** | **Tan** |
+| ![Purple](docs/theme-purple.png) | ![Tan](docs/theme-tan.png) |
 
 ## What it does
 
@@ -18,6 +22,31 @@ frequency sits in the stereo field.
 | **MIX** | Dry/wet. |
 | **OUTPUT** | Output gain (−24 to +12 dB). |
 | **MONO CHECK** | Sums the output to mono so you can check that the vocal still holds up. |
+
+### Themes
+Click one of the four colour dots (top right) to switch the theme: **Blue, Pink, Purple or Tan**.
+Your choice is saved with your FL Studio project.
+
+### Presets (15)
+Use the preset menu or the `<` `>` arrows at the top. The presets also show up in FL Studio's own preset menu.
+
+| # | Preset | Use it for |
+|---|---|---|
+| 1 | Init | Neutral starting point |
+| 2 | Subtle Lead | A touch of air on a lead vocal |
+| 3 | Pop Lead | Polished, slightly wide lead |
+| 4 | Wide Pop Lead | Big modern pop lead |
+| 5 | R&B Silk | Smooth, wide and soft |
+| 6 | Rap Upfront | Punchy and centred, just a little width |
+| 7 | Trap Ad-libs | Very wide ad-libs around the lead |
+| 8 | Huge Chorus Stack | Wall-of-vocals chorus |
+| 9 | Backing Vocals Wide | Push backing vocals out to the sides |
+| 10 | Tight Doubler | Fake double-tracking |
+| 11 | Ambient Haze | Dreamy, spacious vocals |
+| 12 | Lo-Fi Narrow | Narrow, vintage feel |
+| 13 | Mono Focus | Collapse to mono |
+| 14 | Harmony Left | Harmony placed left |
+| 15 | Harmony Right | Harmony placed right |
 
 ### The 3D view
 - **Left ↔ Right** = stereo position
@@ -79,7 +108,7 @@ test/RenderTest.cpp   offline test that renders screenshots (optional)
 ```
 
 ## Ideas for next versions
-- Presets (Subtle / Pop Lead / Huge Chorus / Ad-libs)
+- Save your own presets
 - A slow modulation on Spread Time for a chorus/doubler effect
 - OpenGL rendering for even smoother visuals at large window sizes
 - A "before vs after" toggle that shows the input cloud next to the output

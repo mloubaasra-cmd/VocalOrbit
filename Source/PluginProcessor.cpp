@@ -172,6 +172,59 @@ void VocalOrbitProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer&)
     visualFifo.push (L, R, n);
 }
 
+const std::vector<VocalOrbitProcessor::Preset>& VocalOrbitProcessor::getPresets()
+{
+    //                      name                  width spread time  bass  pan   mix   out
+    static const std::vector<Preset> presets {
+        { "Init",                 100.0f,  0.0f, 14.0f, 120.0f,   0.0f, 100.0f,  0.0f },
+        { "Subtle Lead",          110.0f, 20.0f, 12.0f, 150.0f,   0.0f, 100.0f,  0.0f },
+        { "Pop Lead",             120.0f, 35.0f, 14.0f, 150.0f,   0.0f, 100.0f, -0.5f },
+        { "Wide Pop Lead",        140.0f, 50.0f, 16.0f, 160.0f,   0.0f, 100.0f, -1.0f },
+        { "R&B Silk",             130.0f, 40.0f, 18.0f, 180.0f,   0.0f, 100.0f, -0.5f },
+        { "Rap Upfront",           95.0f, 12.0f,  9.0f, 200.0f,   0.0f, 100.0f,  0.0f },
+        { "Trap Ad-libs",         170.0f, 75.0f, 11.0f, 220.0f,   0.0f, 100.0f, -1.5f },
+        { "Huge Chorus Stack",    180.0f, 70.0f, 22.0f, 160.0f,   0.0f, 100.0f, -1.5f },
+        { "Backing Vocals Wide",  200.0f, 85.0f, 25.0f, 200.0f,   0.0f, 100.0f, -2.0f },
+        { "Tight Doubler",        100.0f, 55.0f,  8.0f, 150.0f,   0.0f, 100.0f, -1.0f },
+        { "Ambient Haze",         160.0f, 90.0f, 32.0f, 250.0f,   0.0f,  85.0f, -2.0f },
+        { "Lo-Fi Narrow",          60.0f, 10.0f,  6.0f, 300.0f,   0.0f, 100.0f,  0.0f },
+        { "Mono Focus",             0.0f,  0.0f, 14.0f,  20.0f,   0.0f, 100.0f,  0.0f },
+        { "Harmony Left",         130.0f, 45.0f, 15.0f, 180.0f, -40.0f, 100.0f, -1.0f },
+        { "Harmony Right",        130.0f, 45.0f, 15.0f, 180.0f,  40.0f, 100.0f, -1.0f },
+    };
+    return presets;
+}
+
+void VocalOrbitProcessor::setCurrentProgram (int index)
+{
+    const auto& presets = getPresets();
+    if (! isPositiveAndBelow (index, (int) presets.size()))
+        return;
+
+    currentPreset = index;
+    const auto& pr = presets[(size_t) index];
+
+    auto set = [this] (const char* id, float value)
+    {
+        if (auto* param = apvts.getParameter (id))
+            param->setValueNotifyingHost (param->convertTo0to1 (value));
+    };
+
+    set ("width",      pr.width);
+    set ("spread",     pr.spread);
+    set ("spreadTime", pr.spreadTime);
+    set ("bassFocus",  pr.bassFocus);
+    set ("pan",        pr.pan);
+    set ("mix",        pr.mix);
+    set ("output",     pr.output);
+}
+
+const String VocalOrbitProcessor::getProgramName (int index)
+{
+    const auto& presets = getPresets();
+    return isPositiveAndBelow (index, (int) presets.size()) ? String (presets[(size_t) index].name) : String();
+}
+
 AudioProcessorEditor* VocalOrbitProcessor::createEditor()
 {
     return new VocalOrbitEditor (*this);
@@ -179,7 +232,9 @@ AudioProcessorEditor* VocalOrbitProcessor::createEditor()
 
 void VocalOrbitProcessor::getStateInformation (MemoryBlock& destData)
 {
-    if (auto xml = apvts.copyState().createXml())
+    auto state = apvts.copyState();
+    state.setProperty ("preset", currentPreset.load(), nullptr);
+    if (auto xml = state.createXml())
         copyXmlToBinary (*xml, destData);
 }
 
@@ -187,7 +242,11 @@ void VocalOrbitProcessor::setStateInformation (const void* data, int sizeInBytes
 {
     if (auto xml = getXmlFromBinary (data, sizeInBytes))
         if (xml->hasTagName (apvts.state.getType()))
-            apvts.replaceState (ValueTree::fromXml (*xml));
+        {
+            auto state = ValueTree::fromXml (*xml);
+            currentPreset = jlimit (0, getNumPrograms() - 1, (int) state.getProperty ("preset", 0));
+            apvts.replaceState (state);
+        }
 }
 
 AudioProcessor* JUCE_CALLTYPE createPluginFilter()

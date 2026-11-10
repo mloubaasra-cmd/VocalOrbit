@@ -23,15 +23,18 @@ int main (int argc, char** argv)
     std::unique_ptr<AudioProcessorEditor> ed (p.createEditor());
     ed->setSize (920, 640);
     double phase = 0; Random rng (1);
-    auto shot = [&] (const char* name, float spread, float width) {
-        p.apvts.getParameter ("spread")->setValueNotifyingHost (p.apvts.getParameterRange ("spread").convertTo0to1 (spread));
-        p.apvts.getParameter ("width")->setValueNotifyingHost (p.apvts.getParameterRange ("width").convertTo0to1 (width));
+    auto shot = [&] (const char* name, int preset, int theme) {
+        p.setCurrentProgram (preset);
+        p.apvts.state.setProperty ("theme", theme, nullptr);
         for (int f = 0; f < 25; ++f) { runAudio (p, 1.0f / 30, phase, rng); MessageManager::getInstance()->runDispatchLoopUntil (34); }
         auto img = ed->createComponentSnapshot (ed->getLocalBounds());
         File out (String (argv[1]) + "/" + name); out.deleteFile();
         FileOutputStream os (out); PNGImageFormat().writeImageToStream (img, os);
     };
-    shot ("mono.png", 0, 100);
-    shot ("wide.png", 85, 150);
+    shot ("theme-blue.png",   3, 0);   // Wide Pop Lead
+    shot ("theme-pink.png",   7, 1);   // Huge Chorus Stack
+    shot ("theme-purple.png", 4, 2);   // R&B Silk
+    shot ("theme-tan.png",   13, 3);   // Harmony Left
+    for (int i = 0; i < p.getNumPrograms(); ++i) std::printf ("%2d %s\n", i + 1, p.getProgramName (i).toRawUTF8());
     ed.reset(); return 0;
 }

@@ -2,6 +2,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <juce_dsp/juce_dsp.h>
 #include "StereoSampleFifo.h"
+#include "Themes.h"
 
 // 3D stereo spectrum.
 //   X axis = stereo position (Left ... Right)
@@ -18,6 +19,7 @@ public:
 
     void paint (juce::Graphics&) override;
     void resized() override;
+    void setTheme (const Theme& t) { theme = t; repaint(); }
 
     void mouseDown (const juce::MouseEvent&) override;
     void mouseDrag (const juce::MouseEvent&) override;
@@ -54,6 +56,7 @@ private:
     void drawCorrelation (juce::Graphics&, juce::Rectangle<float>);
 
     StereoSampleFifo& fifo;
+    Theme theme = getThemes()[0];
 
     juce::dsp::FFT fft { fftOrder };
     juce::dsp::WindowingFunction<float> window { (size_t) fftSize, juce::dsp::WindowingFunction<float>::hann };

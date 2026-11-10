@@ -24,10 +24,18 @@ public:
     bool isMidiEffect() const override { return false; }
     double getTailLengthSeconds() const override { return 0.05; }
 
-    int getNumPrograms() override { return 1; }
-    int getCurrentProgram() override { return 0; }
-    void setCurrentProgram (int) override {}
-    const juce::String getProgramName (int) override { return {}; }
+    // Factory presets (also shown in FL Studio's preset menu)
+    struct Preset
+    {
+        const char* name;
+        float width, spread, spreadTime, bassFocus, pan, mix, output;
+    };
+    static const std::vector<Preset>& getPresets();
+
+    int getNumPrograms() override { return (int) getPresets().size(); }
+    int getCurrentProgram() override { return currentPreset.load(); }
+    void setCurrentProgram (int index) override;
+    const juce::String getProgramName (int index) override;
     void changeProgramName (int, const juce::String&) override {}
 
     void getStateInformation (juce::MemoryBlock& destData) override;
@@ -59,6 +67,7 @@ private:
     juce::dsp::StateVariableTPTFilter<float> sideHighPass;
 
     double currentSampleRate = 44100.0;
+    std::atomic<int> currentPreset { 0 };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (VocalOrbitProcessor)
 };

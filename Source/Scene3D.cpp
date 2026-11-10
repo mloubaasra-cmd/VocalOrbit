@@ -2,15 +2,6 @@
 
 using namespace juce;
 
-namespace Palette
-{
-    const Colour bgTop    { 0xff0b1020 };
-    const Colour bgBottom { 0xff05070e };
-    const Colour grid     { 0xff2a3a5c };
-    const Colour text     { 0xff8fa6cc };
-    const Colour accent   { 0xff6ee7ff };
-    const Colour accent2  { 0xffb388ff };
-}
 
 Scene3D::Scene3D (StereoSampleFifo& f) : fifo (f)
 {
@@ -194,7 +185,7 @@ void Scene3D::updateDots (float dt, bool hasNewAudio)
             dots.push_back ({ { x, y * (0.9f + 0.1f * rng.nextFloat()), z },
                               1.0f,
                               1.6f + 3.2f * y,
-                              0.08f + 0.62f * z });
+                              z });
         }
     }
 
@@ -249,7 +240,7 @@ void Scene3D::resized()
 //==============================================================================
 void Scene3D::paint (Graphics& g)
 {
-    g.setGradientFill (ColourGradient (Palette::bgTop, 0, 0, Palette::bgBottom, 0, (float) getHeight(), false));
+    g.setGradientFill (ColourGradient (theme.bgTop, 0, 0, theme.bgBottom, 0, (float) getHeight(), false));
     g.fillAll();
 
     drawStage (g);
@@ -257,11 +248,11 @@ void Scene3D::paint (Graphics& g)
     drawDots (g);
     drawCorrelation (g, getLocalBounds().toFloat().removeFromBottom (34.0f).reduced (16.0f, 8.0f));
 
-    g.setColour (Palette::text.withAlpha (0.55f));
+    g.setColour (theme.text.withAlpha (0.55f));
     g.setFont (FontOptions (11.0f));
     g.drawText ("drag to orbit  |  wheel to zoom  |  double-click to reset",
                 getLocalBounds().reduced (12, 8), Justification::topRight);
-    g.setColour (Palette::text);
+    g.setColour (theme.text);
     g.setFont (FontOptions (12.0f, Font::bold));
     g.drawText ("STEREO SPECTRUM 3D", getLocalBounds().reduced (12, 8), Justification::topLeft);
 }
@@ -275,7 +266,7 @@ void Scene3D::drawStage (Graphics& g)
     floor.lineTo (proj (1, 0, 1));
     floor.lineTo (proj (-1, 0, 1));
     floor.closeSubPath();
-    g.setColour (Colour (0xff111a30).withAlpha (0.85f));
+    g.setColour (theme.floor.withAlpha (0.9f));
     g.fillPath (floor);
 
     // Back wall (dB grid)
@@ -285,7 +276,7 @@ void Scene3D::drawStage (Graphics& g)
     wall.lineTo (proj (1, 1, 1));
     wall.lineTo (proj (-1, 1, 1));
     wall.closeSubPath();
-    g.setColour (Colour (0xff0e1528).withAlpha (0.6f));
+    g.setColour (theme.wall.withAlpha (0.7f));
     g.fillPath (wall);
 
     g.setFont (FontOptions (10.0f));
@@ -293,9 +284,9 @@ void Scene3D::drawStage (Graphics& g)
     for (float db : { -60.0f, -40.0f, -20.0f, 0.0f })
     {
         const float y = dbToY (db);
-        g.setColour (Palette::grid.withAlpha (0.45f));
+        g.setColour (theme.grid.withAlpha (0.45f));
         g.drawLine (Line<float> (proj (-1, y, 1), proj (1, y, 1)), 0.8f);
-        g.setColour (Palette::text.withAlpha (0.6f));
+        g.setColour (theme.text.withAlpha (0.6f));
         const auto p = proj (1.04f, y, 1);
         g.drawText (String ((int) db) + " dB", Rectangle<float> (p.x + 2, p.y - 6, 44, 12), Justification::left);
     }
@@ -304,7 +295,7 @@ void Scene3D::drawStage (Graphics& g)
     for (float x : { -1.0f, -0.5f, 0.0f, 0.5f, 1.0f })
     {
         const bool centre = std::abs (x) < 0.01f;
-        g.setColour (centre ? Palette::accent.withAlpha (0.35f) : Palette::grid.withAlpha (0.7f));
+        g.setColour (centre ? theme.accent.withAlpha (0.35f) : theme.grid.withAlpha (0.7f));
         g.drawLine (Line<float> (proj (x, 0, 0), proj (x, 0, 1)), centre ? 1.2f : 0.8f);
     }
 
@@ -314,9 +305,9 @@ void Scene3D::drawStage (Graphics& g)
                      FL { 2000, "2k" }, FL { 4000, "4k" }, FL { 8000, "8k" }, FL { 16000, "16k" } })
     {
         const float z = freqToZ (fl.hz);
-        g.setColour (Palette::grid.withAlpha (0.55f));
+        g.setColour (theme.grid.withAlpha (0.55f));
         g.drawLine (Line<float> (proj (-1, 0, z), proj (1, 0, z)), 0.7f);
-        g.setColour (Palette::text.withAlpha (0.75f));
+        g.setColour (theme.text.withAlpha (0.75f));
         const auto p = proj (1.08f, 0, z);
         g.drawText (fl.name, Rectangle<float> (p.x - 2, p.y - 6, 34, 12), Justification::left);
     }
@@ -329,9 +320,9 @@ void Scene3D::drawStage (Graphics& g)
         g.setColour (c);
         g.drawText (t, Rectangle<float> (p.x - 20, p.y - 8, 40, 16), Justification::centred);
     };
-    label (-1.0f, "L", Palette::text);
-    label ( 0.0f, "C", Palette::accent.withAlpha (0.8f));
-    label ( 1.0f, "R", Palette::text);
+    label (-1.0f, "L", theme.text);
+    label ( 0.0f, "C", theme.accent.withAlpha (0.8f));
+    label ( 1.0f, "R", theme.text);
 }
 
 void Scene3D::drawSpine (Graphics& g)
@@ -348,9 +339,9 @@ void Scene3D::drawSpine (Graphics& g)
         else            spine.lineTo (p);
     }
 
-    g.setColour (Palette::accent.withAlpha (0.12f));
+    g.setColour (theme.accent.withAlpha (0.12f));
     g.strokePath (spine, PathStrokeType (5.0f, PathStrokeType::curved, PathStrokeType::rounded));
-    g.setColour (Palette::accent.withAlpha (0.55f));
+    g.setColour (theme.accent.withAlpha (0.55f));
     g.strokePath (spine, PathStrokeType (1.3f, PathStrokeType::curved, PathStrokeType::rounded));
 }
 
@@ -364,7 +355,7 @@ void Scene3D::drawDots (Graphics& g)
     {
         const auto pr = project (d.p);
         const float r = d.size * pr.scale * (0.4f + 0.6f * d.life);
-        const auto c = Colour::fromHSV (d.hue, 0.65f, 1.0f, jlimit (0.0f, 1.0f, d.life * 0.9f));
+        const auto c = dotColour (theme, d.p.z).withAlpha (jlimit (0.0f, 1.0f, d.life * 0.9f));
         items.push_back ({ pr.pt, pr.depth, r, c, 0.0f });
     }
 
@@ -383,24 +374,24 @@ void Scene3D::drawDots (Graphics& g)
 void Scene3D::drawCorrelation (Graphics& g, Rectangle<float> area)
 {
     g.setFont (FontOptions (10.0f));
-    g.setColour (Palette::text);
+    g.setColour (theme.text);
     g.drawText ("PHASE", area.removeFromLeft (44), Justification::centredLeft);
     g.drawText (String (correlation, 2), area.removeFromRight (40), Justification::centredRight);
 
     auto bar = area.withSizeKeepingCentre (area.getWidth(), 6.0f);
-    g.setColour (Colour (0xff1a2440));
+    g.setColour (theme.track);
     g.fillRoundedRectangle (bar, 3.0f);
 
     const float cx = bar.getCentreX();
     const float x  = bar.getX() + (correlation * 0.5f + 0.5f) * bar.getWidth();
-    const auto  col = correlation < 0.0f ? Colour (0xffff5c7a) : Palette::accent;
+    const auto  col = correlation < 0.0f ? theme.warning : theme.accent;
 
     g.setColour (col.withAlpha (0.7f));
     g.fillRect (Rectangle<float>::leftTopRightBottom (jmin (cx, x), bar.getY(), jmax (cx, x), bar.getBottom()));
-    g.setColour (Colours::white);
+    g.setColour (theme.pointer);
     g.fillRect (x - 1.5f, bar.getY() - 3.0f, 3.0f, bar.getHeight() + 6.0f);
 
-    g.setColour (Palette::text.withAlpha (0.6f));
+    g.setColour (theme.text.withAlpha (0.6f));
     g.drawText ("-1", bar.translated (0, 8).withWidth (20), Justification::left);
     g.drawText ("+1", bar.translated (0, 8).withTrimmedLeft (bar.getWidth() - 20), Justification::right);
 }
