@@ -25,10 +25,12 @@ public:
     double getTailLengthSeconds() const override { return 0.05; }
 
     // Factory presets (also shown in FL Studio's preset menu)
+    struct NodePreset { float freq, pan, bandWidth; }; // Hz, -100..100, octaves
     struct Preset
     {
         const char* name;
         float width, spread, spreadTime, bassFocus, pan, mix, output;
+        std::vector<NodePreset> nodes; // empty = no frequency nodes
     };
     static const std::vector<Preset>& getPresets();
 

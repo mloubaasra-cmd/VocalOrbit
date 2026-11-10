@@ -209,8 +209,16 @@ VocalOrbitEditor::VocalOrbitEditor (VocalOrbitProcessor& p)
     monoAttachment = std::make_unique<AudioProcessorValueTreeState::ButtonAttachment> (processor.apvts, "monoCheck", monoButton);
 
     // Presets
+    const auto& presets = VocalOrbitProcessor::getPresets();
     for (int i = 0; i < processor.getNumPrograms(); ++i)
+    {
+        if (i == 0)
+            presetBox.addSectionHeading ("WIDTH");
+        else if (! presets[(size_t) i].nodes.empty() && presets[(size_t) i - 1].nodes.empty())
+            presetBox.addSectionHeading ("FREQUENCY PLACEMENT (nodes)");
+
         presetBox.addItem (String (i + 1).paddedLeft ('0', 2) + "  " + processor.getProgramName (i), i + 1);
+    }
     presetBox.setSelectedId (processor.getCurrentProgram() + 1, dontSendNotification);
     presetBox.onChange = [this] { loadPreset (presetBox.getSelectedId() - 1); };
     presetBox.setJustificationType (Justification::centredLeft);

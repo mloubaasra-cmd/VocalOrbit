@@ -275,21 +275,45 @@ const std::vector<VocalOrbitProcessor::Preset>& VocalOrbitProcessor::getPresets(
 {
     //                      name                  width spread time  bass  pan   mix   out
     static const std::vector<Preset> presets {
-        { "Init",                 100.0f,  0.0f, 14.0f, 120.0f,   0.0f, 100.0f,  0.0f },
-        { "Subtle Lead",          110.0f, 20.0f, 12.0f, 150.0f,   0.0f, 100.0f,  0.0f },
-        { "Pop Lead",             120.0f, 35.0f, 14.0f, 150.0f,   0.0f, 100.0f, -0.5f },
-        { "Wide Pop Lead",        140.0f, 50.0f, 16.0f, 160.0f,   0.0f, 100.0f, -1.0f },
-        { "R&B Silk",             130.0f, 40.0f, 18.0f, 180.0f,   0.0f, 100.0f, -0.5f },
-        { "Rap Upfront",           95.0f, 12.0f,  9.0f, 200.0f,   0.0f, 100.0f,  0.0f },
-        { "Trap Ad-libs",         170.0f, 75.0f, 11.0f, 220.0f,   0.0f, 100.0f, -1.5f },
-        { "Huge Chorus Stack",    180.0f, 70.0f, 22.0f, 160.0f,   0.0f, 100.0f, -1.5f },
-        { "Backing Vocals Wide",  200.0f, 85.0f, 25.0f, 200.0f,   0.0f, 100.0f, -2.0f },
-        { "Tight Doubler",        100.0f, 55.0f,  8.0f, 150.0f,   0.0f, 100.0f, -1.0f },
-        { "Ambient Haze",         160.0f, 90.0f, 32.0f, 250.0f,   0.0f,  85.0f, -2.0f },
-        { "Lo-Fi Narrow",          60.0f, 10.0f,  6.0f, 300.0f,   0.0f, 100.0f,  0.0f },
-        { "Mono Focus",             0.0f,  0.0f, 14.0f,  20.0f,   0.0f, 100.0f,  0.0f },
-        { "Harmony Left",         130.0f, 45.0f, 15.0f, 180.0f, -40.0f, 100.0f, -1.0f },
-        { "Harmony Right",        130.0f, 45.0f, 15.0f, 180.0f,  40.0f, 100.0f, -1.0f },
+        { "Init",                 100.0f,  0.0f, 14.0f, 120.0f,   0.0f, 100.0f,  0.0f, {} },
+        { "Subtle Lead",          110.0f, 20.0f, 12.0f, 150.0f,   0.0f, 100.0f,  0.0f, {} },
+        { "Pop Lead",             120.0f, 35.0f, 14.0f, 150.0f,   0.0f, 100.0f, -0.5f, {} },
+        { "Wide Pop Lead",        140.0f, 50.0f, 16.0f, 160.0f,   0.0f, 100.0f, -1.0f, {} },
+        { "R&B Silk",             130.0f, 40.0f, 18.0f, 180.0f,   0.0f, 100.0f, -0.5f, {} },
+        { "Rap Upfront",           95.0f, 12.0f,  9.0f, 200.0f,   0.0f, 100.0f,  0.0f, {} },
+        { "Trap Ad-libs",         170.0f, 75.0f, 11.0f, 220.0f,   0.0f, 100.0f, -1.5f, {} },
+        { "Huge Chorus Stack",    180.0f, 70.0f, 22.0f, 160.0f,   0.0f, 100.0f, -1.5f, {} },
+        { "Backing Vocals Wide",  200.0f, 85.0f, 25.0f, 200.0f,   0.0f, 100.0f, -2.0f, {} },
+        { "Tight Doubler",        100.0f, 55.0f,  8.0f, 150.0f,   0.0f, 100.0f, -1.0f, {} },
+        { "Ambient Haze",         160.0f, 90.0f, 32.0f, 250.0f,   0.0f,  85.0f, -2.0f, {} },
+        { "Lo-Fi Narrow",          60.0f, 10.0f,  6.0f, 300.0f,   0.0f, 100.0f,  0.0f, {} },
+        { "Mono Focus",             0.0f,  0.0f, 14.0f,  20.0f,   0.0f, 100.0f,  0.0f, {} },
+        { "Harmony Left",         130.0f, 45.0f, 15.0f, 180.0f, -40.0f, 100.0f, -1.0f, {} },
+        { "Harmony Right",        130.0f, 45.0f, 15.0f, 180.0f,  40.0f, 100.0f, -1.0f, {} },
+
+        // ---- Frequency placement presets (use the movable nodes) ----
+        //                                                           nodes: { Hz, position, octaves }
+        { "Air Split",            110.0f, 20.0f, 12.0f, 150.0f,   0.0f, 100.0f, -0.5f,
+            { { 9000.0f, -60.0f, 1.2f }, { 13500.0f, 60.0f, 1.0f } } },
+        { "Body Right Air Left",  110.0f, 25.0f, 14.0f, 150.0f,   0.0f, 100.0f, -0.5f,
+            { { 300.0f, 35.0f, 1.2f }, { 9500.0f, -45.0f, 1.5f } } },
+        { "Sibilance Spread",     100.0f, 15.0f, 12.0f, 150.0f,   0.0f, 100.0f,  0.0f,
+            { { 6300.0f, -50.0f, 0.6f }, { 8200.0f, 50.0f, 0.6f } } },
+        { "Presence Swirl",       115.0f, 25.0f, 14.0f, 160.0f,   0.0f, 100.0f, -0.5f,
+            { { 2000.0f, -40.0f, 0.7f }, { 3200.0f, 40.0f, 0.7f }, { 5000.0f, -30.0f, 0.7f } } },
+        { "Wide Harmonics",       120.0f, 20.0f, 14.0f, 180.0f,   0.0f, 100.0f, -1.0f,
+            { { 1000.0f, -30.0f, 0.6f }, { 1600.0f, 30.0f, 0.6f }, { 2500.0f, -30.0f, 0.6f }, { 4000.0f, 30.0f, 0.6f } } },
+        { "Breathy Halo",         120.0f, 40.0f, 16.0f, 180.0f,   0.0f, 100.0f, -1.0f,
+            { { 10500.0f, -70.0f, 1.4f }, { 14000.0f, 70.0f, 1.2f } } },
+        { "Dark Left Bright Right",100.0f, 15.0f, 14.0f, 150.0f,  0.0f, 100.0f, -0.5f,
+            { { 220.0f, -45.0f, 2.0f }, { 6000.0f, 45.0f, 2.0f } } },
+        { "Stereo Telephone",     100.0f, 20.0f, 10.0f, 200.0f,   0.0f, 100.0f, -1.0f,
+            { { 350.0f, -70.0f, 1.0f }, { 3000.0f, 70.0f, 1.0f } } },
+        { "Ad-lib Scatter",       160.0f, 60.0f, 11.0f, 220.0f,   0.0f, 100.0f, -1.5f,
+            { { 500.0f, -70.0f, 0.8f }, { 1200.0f, 70.0f, 0.8f }, { 3000.0f, -70.0f, 0.8f }, { 7000.0f, 70.0f, 0.8f } } },
+        { "Orbit Spread",         130.0f, 30.0f, 14.0f, 160.0f,   0.0f, 100.0f, -1.5f,
+            { { 180.0f, -15.0f, 0.6f }, { 350.0f, 20.0f, 0.6f }, { 700.0f, -30.0f, 0.6f }, { 1300.0f, 40.0f, 0.6f },
+              { 2400.0f, -50.0f, 0.6f }, { 4300.0f, 55.0f, 0.6f }, { 7500.0f, -60.0f, 0.6f }, { 12000.0f, 65.0f, 0.6f } } },
     };
     return presets;
 }
@@ -316,6 +340,24 @@ void VocalOrbitProcessor::setCurrentProgram (int index)
     set ("pan",        pr.pan);
     set ("mix",        pr.mix);
     set ("output",     pr.output);
+
+    // Frequency nodes: load the preset's nodes, switch the rest off
+    for (int i = 0; i < numNodes; ++i)
+    {
+        if (i < (int) pr.nodes.size())
+        {
+            const auto& n = pr.nodes[(size_t) i];
+            set (nodeParamId (i, "freq").toRawUTF8(), n.freq);
+            set (nodeParamId (i, "pan").toRawUTF8(),  n.pan);
+            set (nodeParamId (i, "bw").toRawUTF8(),   n.bandWidth);
+            set (nodeParamId (i, "on").toRawUTF8(),   1.0f);
+        }
+        else
+        {
+            set (nodeParamId (i, "on").toRawUTF8(),   0.0f);
+            set (nodeParamId (i, "pan").toRawUTF8(),  0.0f);
+        }
+    }
 }
 
 const String VocalOrbitProcessor::getProgramName (int index)

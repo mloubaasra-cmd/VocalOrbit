@@ -514,6 +514,11 @@ void Scene3D::clearNodes()
 //==============================================================================
 void Scene3D::drawNodes (Graphics& g)
 {
+    int used = 0;
+    for (int i = 0; i < (int) nodes.size(); ++i)
+        used += nodeOn (i) ? 1 : 0;
+    const bool compactLabels = used > 3;
+
     for (int i = 0; i < (int) nodes.size(); ++i)
     {
         if (! nodeOn (i))
@@ -567,6 +572,17 @@ void Scene3D::drawNodes (Graphics& g)
         const String label = String (i + 1) + ":  " + nodes[(size_t) i].freq->getCurrentValueAsText()
                              + "  " + nodes[(size_t) i].pan->getCurrentValueAsText();
         g.setFont (FontOptions (11.0f, Font::bold));
+
+        if (compactLabels && ! active)
+        {
+            const auto badge = Rectangle<float> (18.0f, 16.0f).withCentre (top.translated (0.0f, -12.0f));
+            g.setColour (theme.panel.withAlpha (0.85f));
+            g.fillRoundedRectangle (badge, 4.0f);
+            g.setColour (theme.dimText);
+            g.drawText (String (i + 1), badge, Justification::centred);
+            continue;
+        }
+
         const auto box = Rectangle<float> (110.0f, 18.0f).withCentre (top.translated (0.0f, -14.0f));
         g.setColour (theme.panel.withAlpha (0.85f));
         g.fillRoundedRectangle (box, 4.0f);

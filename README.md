@@ -49,7 +49,7 @@ slightly right.
 Click one of the four colour dots (top right) to switch the theme: **Blue, Pink, Purple or Tan**.
 Your choice is saved with your FL Studio project.
 
-### Presets (15)
+### Presets (25)
 Use the preset menu or the `<` `>` arrows at the top. The presets also show up in FL Studio's own preset menu.
 
 | # | Preset | Use it for |
@@ -69,6 +69,25 @@ Use the preset menu or the `<` `>` arrows at the top. The presets also show up i
 | 13 | Mono Focus | Collapse to mono |
 | 14 | Harmony Left | Harmony placed left |
 | 15 | Harmony Right | Harmony placed right |
+
+**Frequency placement presets.** These use the movable nodes. Load one, then drag the nodes to fine-tune it.
+
+| # | Preset | Where the frequencies go |
+|---|---|---|
+| 16 | Air Split | 9 kHz air to the left, 13.5 kHz to the right |
+| 17 | Body Right Air Left | Body (300 Hz) slightly right, air (9.5 kHz) left |
+| 18 | Sibilance Spread | "S" sounds split left/right so they don't stab the centre |
+| 19 | Presence Swirl | 2 / 3.2 / 5 kHz alternate L-R-L |
+| 20 | Wide Harmonics | Four mid harmonic ranges alternating L/R |
+| 21 | Breathy Halo | Breath and air pushed wide on both sides |
+| 22 | Dark Left Bright Right | Lows to the left, highs to the right |
+| 23 | Stereo Telephone | Low-mids hard left, upper mids hard right, for an effect |
+| 24 | Ad-lib Scatter | Four ranges thrown wide for ad-libs |
+| 25 | Orbit Spread | All 8 nodes, from 180 Hz to 12 kHz, swinging out wider as they go up |
+
+![Orbit Spread](docs/preset-orbit-spread.png)
+
+Loading presets 1–15 removes any nodes, so they always sound the same.
 
 ### The 3D view
 - **Left ↔ Right** = stereo position

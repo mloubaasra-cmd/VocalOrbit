@@ -67,9 +67,9 @@ int main (int argc, char** argv)
     shot ("theme-pink.png",   7, 1);   // Huge Chorus Stack
     shot ("theme-purple.png", 4, 2);   // R&B Silk
     shot ("theme-tan.png",   13, 3);   // Harmony Left
-    setP (p, "node1_freq", 2400); setP (p, "node1_pan", -75); setP (p, "node1_bw", 1.4f); setP (p, "node1_on", 1);
-    setP (p, "node2_freq", 330);  setP (p, "node2_pan", 65);  setP (p, "node2_on", 1);
-    shot ("nodes.png", 2, 0);       // Pop Lead + two nodes
+    shot ("preset-body-right-air-left.png", 16, 0);
+    shot ("preset-orbit-spread.png", 24, 2);
+    shot ("preset-back-to-init.png", 0, 0);   // must clear the nodes again
     for (int i = 0; i < p.getNumPrograms(); ++i) std::printf ("%2d %s\n", i + 1, p.getProgramName (i).toRawUTF8());
     ed.reset(); return 0;
 }
